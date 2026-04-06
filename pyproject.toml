@@ -29,6 +29,6 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [project.scripts]
-supportdesk-server = "supportdesk_env.server.app:run"
-server = "supportdesk_env.server.app:run"
+supportdesk-server = "supportdesk_env.server.app:main"
+server = "supportdesk_env.server.app:main"
 
