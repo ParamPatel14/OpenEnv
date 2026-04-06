@@ -1,0 +1,7 @@
+name: supportdesk_env
+version: "0.1.0"
+description: Customer support ticket triage + safe reply drafting environment for RL/agent post-training
+tags:
+  - openenv
+  - rl
+  - customer-support

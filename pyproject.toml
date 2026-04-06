@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "supportdesk-env"
+version = "0.1.0"
+description = "OpenEnv environment for customer support ticket triage and safe reply drafting"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.8",
+  "httpx>=0.27",
+  "websockets>=12.0",
+  "openenv-core>=0.1.0",
+  "openai>=1.40",
+]
+
+[project.urls]
+Repository = "https://huggingface.co/spaces/<your-username>/supportdesk-env"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+supportdesk-server = "supportdesk_env.server.app:run"
+
