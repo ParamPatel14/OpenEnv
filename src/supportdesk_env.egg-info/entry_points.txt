@@ -1,2 +1,0 @@
-[console_scripts]
-supportdesk-server = supportdesk_env.server.app:run

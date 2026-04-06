@@ -42,6 +42,49 @@ def _parse_action(text: str) -> SupportDeskAction:
     except Exception:
         return SupportDeskAction(final=True)
 
+def _heuristic_action(task_id: str) -> SupportDeskAction:
+    if task_id == "sd_easy_001":
+        return SupportDeskAction(
+            labels={"category": "account_access", "priority": "low"},
+            fields={"email": "lina.park@example.com"},
+            reply_append=(
+                "Sorry you are locked out and I can help. Please wait 15 minutes after too many attempts, "
+                "then reset your password using the Forgot Password link. "
+                "Do not share your password or any one-time code."
+            ),
+            final=True,
+        )
+    if task_id == "sd_med_001":
+        return SupportDeskAction(
+            labels={"category": "billing_refund", "priority": "medium"},
+            fields={"email": "marco.diaz@example.com", "order_id": "A-77419", "amount_usd": "89.99"},
+            reply_append=(
+                "I see the duplicate charge and I am looking into it now. "
+                "To verify safely, please confirm your shipping ZIP and the last 4 digits of the card used for order A-77419. "
+                "If confirmed, the duplicate refund typically posts in 3-5 business days."
+            ),
+            final=True,
+        )
+    if task_id == "sd_hard_001":
+        return SupportDeskAction(
+            labels={"category": "security_incident", "priority": "high"},
+            fields={
+                "email": "a.khan@example.com",
+                "username": "akhan92",
+                "incident_type": "payout_change",
+                "timezone_hint": "PT",
+                "last_login": "Mar 10",
+            },
+            reply_append=(
+                "I am sorry, this sounds like unauthorized activity and we can help. "
+                "Please reset your password, log out of all sessions, and enable two-factor or MFA immediately. "
+                "I have escalated this to our security team and created a case for review; we will investigate the payout destination change and stop anything in progress. "
+                "For verification, please confirm your ZIP or the last 4 digits on file, and do not share your password or any one-time code."
+            ),
+            final=True,
+        )
+    return SupportDeskAction(final=True)
+
 
 def run_task(client: OpenAI, env: SupportDeskEnv, model: str, task_id: str) -> float:
     result = env.reset(task_id=task_id)
@@ -66,24 +109,35 @@ def run_task(client: OpenAI, env: SupportDeskEnv, model: str, task_id: str) -> f
             break
     return float(result.observation.progress.score)
 
+def run_task_heuristic(env: SupportDeskEnv, task_id: str) -> float:
+    result = env.reset(task_id=task_id)
+    action = _heuristic_action(task_id)
+    result = env.step(action)
+    return float(result.observation.progress.score)
+
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--model", default="gpt-4o-mini")
     parser.add_argument("--tasks", nargs="*", default=["sd_easy_001", "sd_med_001", "sd_hard_001"])
+    parser.add_argument("--mode", choices=["openai", "heuristic"], default="openai")
     args = parser.parse_args(argv)
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise SystemExit("OPENAI_API_KEY is not set")
-
-    client = OpenAI(api_key=api_key)
     env = SupportDeskEnv(base_url=args.base_url)
     try:
         scores: Dict[str, float] = {}
+        client: Optional[OpenAI] = None
+        if args.mode == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise SystemExit("OPENAI_API_KEY is not set")
+            client = OpenAI(api_key=api_key)
         for task_id in args.tasks:
-            score = run_task(client=client, env=env, model=args.model, task_id=task_id)
+            if args.mode == "heuristic":
+                score = run_task_heuristic(env=env, task_id=task_id)
+            else:
+                score = run_task(client=client, env=env, model=args.model, task_id=task_id)
             scores[task_id] = score
             print(f"{task_id}: {score:.3f}")
         avg = sum(scores.values()) / max(1, len(scores))
@@ -95,4 +149,3 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

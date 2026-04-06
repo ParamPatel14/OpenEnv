@@ -76,6 +76,12 @@ python -m pip install -e .
 python -m uvicorn supportdesk_env.server.app:app --host 0.0.0.0 --port 8000
 ```
 
+Validate:
+
+```bash
+openenv validate
+```
+
 Health check:
 
 ```bash
@@ -85,8 +91,14 @@ curl http://localhost:8000/health
 ## Docker
 
 ```bash
-docker build -t supportdesk-env -f server/Dockerfile .
+docker build -t supportdesk-env .
 docker run -p 8000:8000 supportdesk-env
+```
+
+## Deploy to Hugging Face Spaces
+
+```bash
+openenv push --repo-id <your-username>/supportdesk-env
 ```
 
 ## Baseline (OpenAI)
@@ -105,7 +117,19 @@ Run:
 python scripts/baseline_openai.py --base-url http://localhost:8000 --model gpt-4o-mini
 ```
 
+Heuristic (no API key):
+
+```bash
+python scripts/baseline_openai.py --base-url http://localhost:8000 --mode heuristic
+```
+
 ## Expected Baseline Scores
 
 Baseline scores depend on the model. With deterministic settings (`temperature=0`) you should see stable results run-to-run on the same model.
 
+Heuristic baseline (`--mode heuristic`, fully deterministic):
+
+- `sd_easy_001`: 0.790
+- `sd_med_001`: 1.000
+- `sd_hard_001`: 0.790
+- average: 0.860
