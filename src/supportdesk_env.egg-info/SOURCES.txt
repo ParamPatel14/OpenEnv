@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+src/supportdesk_env/__init__.py
+src/supportdesk_env/client.py
+src/supportdesk_env/env_logic.py
+src/supportdesk_env/models.py
+src/supportdesk_env/tasks.py
+src/supportdesk_env.egg-info/PKG-INFO
+src/supportdesk_env.egg-info/SOURCES.txt
+src/supportdesk_env.egg-info/dependency_links.txt
+src/supportdesk_env.egg-info/entry_points.txt
+src/supportdesk_env.egg-info/requires.txt
+src/supportdesk_env.egg-info/top_level.txt
+src/supportdesk_env/server/__init__.py
+src/supportdesk_env/server/app.py
