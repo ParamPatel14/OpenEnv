@@ -69,6 +69,14 @@ At each step the environment computes the score of the current workspace and pro
 
 This produces dense reward for partial progress (correct label, correct fields, required reply elements) and penalizes unsafe behavior (asking for full card numbers, credentials, or other disallowed content).
 
+## Security Measures
+
+This environment implements several production-grade security measures out-of-the-box:
+
+1. **API Key Authentication**: You can lock down the environment endpoints by setting the `SUPPORTDESK_API_KEY` environment variable. When set, all requests must include this key in the `X-API-Key` header. The Python client will automatically pick it up and pass it if set in the environment.
+2. **CORS Controls**: CORS is configured by default. You can restrict the allowed origins using the `ALLOWED_ORIGINS` environment variable (e.g., `ALLOWED_ORIGINS="https://my-domain.com"`).
+3. **Security Headers**: All HTTP responses include strict security headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security`, `Content-Security-Policy`).
+
 ## Local Setup
 
 ```bash
