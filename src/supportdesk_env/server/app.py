@@ -1,16 +1,54 @@
 from __future__ import annotations
 
+import os
+import secrets
 from typing import Dict, Optional
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Security, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 from ..env_logic import SupportDeskEnvironment
 from ..models import StepResult, SupportDeskAction, SupportDeskState
 
-
 app = FastAPI(title="SupportDesk Env (OpenEnv)")
+
+# -- Security Configuration --
+SUPPORTDESK_API_KEY = os.getenv("SUPPORTDESK_API_KEY")
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def get_api_key(api_key: str = Security(api_key_header)):
+    if SUPPORTDESK_API_KEY:
+        if not api_key or not secrets.compare_digest(api_key, SUPPORTDESK_API_KEY):
+            raise HTTPException(status_code=403, detail="Could not validate API key")
+    return api_key
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# -----------------------------
 
 
 class ResetRequest(BaseModel):
@@ -39,7 +77,7 @@ def health() -> Dict[str, str]:
     return {"status": "healthy"}
 
 
-@app.post("/reset")
+@app.post("/reset", dependencies=[Depends(get_api_key)])
 def http_reset(req: ResetRequest) -> ResetResponse:
     env = SupportDeskEnvironment()
     result = env.reset(task_id=req.task_id)
@@ -48,7 +86,7 @@ def http_reset(req: ResetRequest) -> ResetResponse:
     return ResetResponse(session_id=session_id, result=result)
 
 
-@app.post("/step")
+@app.post("/step", dependencies=[Depends(get_api_key)])
 def http_step(req: StepRequest) -> StepResult:
     env = _sessions.get(req.session_id)
     if env is None:
@@ -56,7 +94,7 @@ def http_step(req: StepRequest) -> StepResult:
     return env.step(req.action)
 
 
-@app.post("/state")
+@app.post("/state", dependencies=[Depends(get_api_key)])
 def http_state(req: StateRequest) -> SupportDeskState:
     env = _sessions.get(req.session_id)
     if env is None:
@@ -64,7 +102,7 @@ def http_state(req: StateRequest) -> SupportDeskState:
     return env.state
 
 
-@app.get("/state")
+@app.get("/state", dependencies=[Depends(get_api_key)])
 def http_state_get(session_id: str) -> SupportDeskState:
     env = _sessions.get(session_id)
     if env is None:
@@ -106,6 +144,12 @@ def web() -> HTMLResponse:
 
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket) -> None:
+    if SUPPORTDESK_API_KEY:
+        provided_key = websocket.headers.get(API_KEY_NAME.lower())
+        if not provided_key or not secrets.compare_digest(provided_key, SUPPORTDESK_API_KEY):
+            await websocket.close(code=1008, reason="Could not validate API key")
+            return
+            
     await websocket.accept()
     env = SupportDeskEnvironment()
     try:

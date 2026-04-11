@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from typing import Optional
 
@@ -12,10 +13,16 @@ from .models import StepResult, SupportDeskAction, SupportDeskState
 
 
 class SupportDeskEnv:
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, api_key: Optional[str] = None):
         self.base_url = base_url.rstrip("/")
         self._session_id: Optional[str] = None
-        self._http = httpx.Client(timeout=30.0)
+        
+        self._api_key = api_key or os.getenv("SUPPORTDESK_API_KEY")
+        headers = {}
+        if self._api_key:
+            headers["X-API-Key"] = self._api_key
+            
+        self._http = httpx.Client(timeout=30.0, headers=headers)
 
     def close(self) -> None:
         self._http.close()
@@ -48,7 +55,7 @@ class SupportDeskEnv:
         return SupportDeskEnvSync(self)
 
     async def ws(self) -> "SupportDeskEnvWS":
-        return await SupportDeskEnvWS.connect(self.base_url)
+        return await SupportDeskEnvWS.connect(self.base_url, api_key=self._api_key)
 
 
 class SupportDeskEnvSync(AbstractContextManager["SupportDeskEnv"]):
@@ -68,9 +75,15 @@ class SupportDeskEnvWS(AbstractAsyncContextManager["SupportDeskEnvWS"]):
         self._ws = ws
 
     @classmethod
-    async def connect(cls, base_url: str) -> "SupportDeskEnvWS":
+    async def connect(cls, base_url: str, api_key: Optional[str] = None) -> "SupportDeskEnvWS":
         ws_url = cls._to_ws_url(base_url.rstrip("/") + "/ws")
-        ws = await websockets.connect(ws_url, open_timeout=30)
+        
+        headers = {}
+        _key = api_key or os.getenv("SUPPORTDESK_API_KEY")
+        if _key:
+            headers["X-API-Key"] = _key
+            
+        ws = await websockets.connect(ws_url, open_timeout=30, extra_headers=headers)
         return cls(base_url=base_url, ws=ws)
 
     @staticmethod
